@@ -1,0 +1,5 @@
+{
+  "name": "זמן למבחן",
+  "description": "AI-powered MCQ generator from PDF or text with interactive exam mode, supporting Hebrew and multiple difficulty levels.",
+  "requestFramePermissions": []
+}
