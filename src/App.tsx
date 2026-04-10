@@ -53,7 +53,6 @@ import {
   type Question, 
   type QuestionType 
 } from '@/src/lib/gemini';
-import { extractTextFromPDF } from '@/src/lib/pdf';
 import { jsPDF } from 'jspdf';
 
 type Step = 'subject' | 'grade' | 'input' | 'topics' | 'quiz' | 'exam' | 'results' | 'history';
@@ -341,7 +340,7 @@ const SubjectSelection = memo(({ onSelect, currentSubject }: { onSelect: (id: st
   </motion.div>
 ));
 
-const InputStep = memo(({ onFileUpload, onTextSubmit, onBack, inputText, setInputText, loading, error }: any) => (
+const InputStep = memo(({ onTextSubmit, onBack, inputText, setInputText, loading, error }: any) => (
   <motion.div
     key="input"
     initial={{ opacity: 0, y: 20 }}
@@ -351,28 +350,10 @@ const InputStep = memo(({ onFileUpload, onTextSubmit, onBack, inputText, setInpu
   >
     <div className="text-center space-y-2 mb-8">
       <h2 className="text-3xl font-extrabold tracking-tight">צור שאלות תרגול חכמות</h2>
-      <p className="text-gray-500">העלה קובץ PDF או הזן טקסט כדי להתחיל</p>
+      <p className="text-gray-500">הזן טקסט כדי להתחיל</p>
     </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Card className="border-2 border-dashed border-gray-200 hover:border-orange-500 transition-colors cursor-pointer relative overflow-hidden group">
-        <input 
-          type="file" 
-          accept=".pdf" 
-          onChange={onFileUpload}
-          className="absolute inset-0 opacity-0 cursor-pointer z-10"
-        />
-        <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
-          <div className="bg-orange-50 p-4 rounded-full group-hover:bg-orange-100 transition-colors">
-            <Upload className="w-8 h-8 text-orange-600" />
-          </div>
-          <div className="text-center">
-            <p className="font-semibold">העלאת קובץ PDF</p>
-            <p className="text-sm text-gray-400">גרור לכאן או לחץ לבחירה</p>
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="max-w-xl mx-auto">
       <Card className="border-2 border-gray-100">
         <CardHeader>
           <CardTitle className="text-lg">הזנת טקסט ידנית</CardTitle>
@@ -480,26 +461,6 @@ export default function App() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isExamActive, examTimeLeft]);
-
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const text = await extractTextFromPDF(file);
-      setExtractedText(text);
-      const extractedTopics = await extractTopics(text);
-      setTopics(extractedTopics);
-      setStep('topics');
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'שגיאה בחילוץ טקסט מהקובץ. נסה שוב או הזן טקסט ידנית.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const handleTextSubmit = useCallback(async () => {
     if (!inputText.trim()) return;
@@ -749,7 +710,6 @@ export default function App() {
           {/* Step 1: Input */}
           {step === 'input' && (
             <InputStep 
-              onFileUpload={handleFileUpload}
               onTextSubmit={handleTextSubmit}
               onBack={() => setStep('grade')}
               inputText={inputText}
