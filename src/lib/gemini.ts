@@ -34,6 +34,19 @@ export interface QuizData {
   questions: Question[];
 }
 
+export interface StudyMaterial {
+  title: string;
+  overview: string;
+  sections: {
+    title: string;
+    content: string;
+    keyPoints: string[];
+    examples?: string[];
+  }[];
+  summary: string;
+  quiz?: QuizData;
+}
+
 export async function generateQuiz(
   content: string,
   options: {
@@ -174,4 +187,56 @@ export async function extractTopics(content: string): Promise<string[]> {
 
   const data = JSON.parse(response.text);
   return data.topics;
+}
+
+export async function generateStudyMaterial(
+  topic: string,
+  options: {
+    subject: string;
+    level: string;
+  }
+): Promise<StudyMaterial> {
+  const prompt = `
+    Generate comprehensive study material in Hebrew for the topic: "${topic}".
+    Subject: ${options.subject}.
+    Target Level: ${options.level}.
+    
+    The material should be educational, clear, and engaging.
+    Include an overview, multiple detailed sections with key points and examples, and a final summary.
+    
+    Structure the response as JSON.
+  `;
+
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          overview: { type: Type.STRING },
+          sections: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                content: { type: Type.STRING },
+                keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+                examples: { type: Type.ARRAY, items: { type: Type.STRING } },
+              },
+              required: ["title", "content", "keyPoints"],
+            },
+          },
+          summary: { type: Type.STRING },
+        },
+        required: ["title", "overview", "sections", "summary"],
+      },
+    },
+  });
+
+  return JSON.parse(response.text);
 }

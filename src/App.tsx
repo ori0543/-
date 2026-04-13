@@ -26,7 +26,19 @@ import {
   Eye,
   Accessibility,
   ShieldCheck,
-  Scale
+  Scale,
+  Star,
+  Lock,
+  Trophy,
+  Sparkles,
+  ArrowRight,
+  Cloud,
+  Trees,
+  Palette,
+  FlaskConical,
+  Rocket,
+  Music,
+  Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,23 +61,29 @@ import {
   generateQuiz, 
   extractTopics, 
   evaluateOpenAnswer,
+  generateStudyMaterial,
   type QuizData, 
   type Question, 
-  type QuestionType 
+  type QuestionType,
+  type StudyMaterial
 } from '@/src/lib/gemini';
 import { jsPDF } from 'jspdf';
 
-type Step = 'subject' | 'grade' | 'input' | 'topics' | 'quiz' | 'exam' | 'results' | 'history';
+type Step = 'landing' | 'subject' | 'grade' | 'input' | 'topics' | 'quiz' | 'exam' | 'results' | 'history' | 'study' | 'study-input';
 
 interface HistoryItem {
   id: string;
   date: string;
   subject: string;
-  score: number;
-  correctCount: number;
-  totalQuestions: number;
-  quizData: QuizData;
-  userAnswers: Record<string, any>;
+  type: 'quiz' | 'study';
+  // Quiz specific fields
+  score?: number;
+  correctCount?: number;
+  totalQuestions?: number;
+  quizData?: QuizData;
+  userAnswers?: Record<string, any>;
+  // Study specific fields
+  studyMaterial?: StudyMaterial;
 }
 
 const SUBJECTS = [
@@ -310,35 +328,333 @@ const DecorativeElements = () => (
 );
 
 // Sub-components for better performance and organization
-const SubjectSelection = memo(({ onSelect, currentSubject }: { onSelect: (id: string) => void, currentSubject: string }) => (
-  <motion.div
-    key="subject"
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    className="space-y-6"
-  >
-    <div className="text-center space-y-2 mb-8">
-      <h2 className="text-3xl font-extrabold tracking-tight">בחר מקצוע לימודי</h2>
-      <p className="text-gray-500">המערכת תתאים את סוג השאלות והרמה לפי המקצוע</p>
-    </div>
+const LearningMap = memo(({ studyMaterial, completedSections, onSelectSection, onBack }: any) => {
+  const levels = [
+    { id: 0, title: 'סקירה כללית', type: 'intro' },
+    ...studyMaterial.sections.map((s: any, i: number) => ({ id: i + 1, title: s.title, type: 'lesson' })),
+    { id: studyMaterial.sections.length + 1, title: 'סיכום ומאסטרי', type: 'final' }
+  ];
 
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-      {SUBJECTS.map((s) => (
-        <Card 
-          key={s.id}
-          className={`cursor-pointer hover:border-orange-500 transition-all hover:shadow-md ${currentSubject === s.id ? 'border-orange-500 bg-orange-50' : ''}`}
-          onClick={() => onSelect(s.id)}
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="relative min-h-screen pb-24 bg-gradient-to-b from-blue-50 via-orange-50 to-green-50 overflow-hidden"
+    >
+      {/* Decorative Background Elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div 
+          animate={{ x: [0, 20, 0], y: [0, 10, 0] }}
+          transition={{ duration: 8, repeat: Infinity }}
+          className="absolute top-20 left-[10%] text-blue-200"
         >
-          <CardContent className="flex flex-col items-center justify-center py-8 space-y-3">
-            <span className="text-4xl">{s.icon}</span>
-            <span className="font-bold">{s.name}</span>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  </motion.div>
-));
+          <Cloud className="w-20 h-20 fill-current" />
+        </motion.div>
+        <motion.div 
+          animate={{ x: [0, -15, 0], y: [0, 15, 0] }}
+          transition={{ duration: 10, repeat: Infinity }}
+          className="absolute top-60 right-[15%] text-orange-200"
+        >
+          <Cloud className="w-16 h-16 fill-current" />
+        </motion.div>
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 5, repeat: Infinity }}
+          className="absolute top-[40%] left-[5%] text-green-200"
+        >
+          <Trees className="w-12 h-12" />
+        </motion.div>
+        <motion.div 
+          animate={{ rotate: [0, 10, 0] }}
+          transition={{ duration: 7, repeat: Infinity }}
+          className="absolute top-[60%] right-[8%] text-purple-200"
+        >
+          <Palette className="w-14 h-14" />
+        </motion.div>
+        <motion.div 
+          animate={{ y: [0, -20, 0] }}
+          transition={{ duration: 6, repeat: Infinity }}
+          className="absolute bottom-[20%] left-[12%] text-red-200"
+        >
+          <Rocket className="w-16 h-16" />
+        </motion.div>
+        <motion.div 
+          animate={{ scale: [0.9, 1, 0.9] }}
+          transition={{ duration: 4, repeat: Infinity }}
+          className="absolute bottom-[10%] right-[10%] text-blue-200"
+        >
+          <Globe className="w-12 h-12" />
+        </motion.div>
+        <div className="absolute top-[25%] right-[5%] text-yellow-200 opacity-40 text-4xl">✨</div>
+        <div className="absolute bottom-[35%] left-[8%] text-pink-200 opacity-40 text-4xl">🎨</div>
+        <div className="absolute top-[75%] left-[15%] text-indigo-200 opacity-40 text-4xl">🧪</div>
+      </div>
+
+      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-100 p-4 mb-8">
+        <div className="max-w-md mx-auto flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ChevronRight className="w-5 h-5 ms-1" />
+            חזור
+          </Button>
+          <h2 className="text-xl font-black text-gray-900 truncate max-w-[200px]">{studyMaterial.title}</h2>
+          <div className="flex items-center gap-2 bg-orange-100 px-3 py-1 rounded-full">
+            <Star className="w-4 h-4 text-orange-500 fill-orange-500" />
+            <span className="text-orange-700 font-bold text-sm">{completedSections.length}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-md mx-auto relative px-4">
+        {/* The Winding Path */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-2 bg-gray-100 -translate-x-1/2 rounded-full" />
+        
+        <div className="space-y-16 relative">
+          {levels.map((level, index) => {
+            const isCompleted = completedSections.includes(level.id);
+            const isLocked = index > 0 && !completedSections.includes(levels[index - 1].id);
+            const isCurrent = index === 0 ? !isCompleted : (completedSections.includes(levels[index - 1].id) && !isCompleted);
+            
+            // Alternating offsets for winding effect
+            const offsetClass = index % 2 === 0 ? 'translate-x-12' : '-translate-x-12';
+            
+            return (
+              <div key={level.id} className="flex flex-col items-center relative">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className={`relative z-10 ${offsetClass} transition-transform`}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <motion.button
+                      whileHover={!isLocked ? { scale: 1.1 } : {}}
+                      whileTap={!isLocked ? { scale: 0.9 } : {}}
+                      onClick={() => !isLocked && onSelectSection(level.id)}
+                      className={`
+                        w-20 h-20 rounded-full flex items-center justify-center shadow-xl relative
+                        ${isCompleted ? 'bg-green-500 shadow-green-200' : 
+                          isCurrent ? 'bg-orange-500 shadow-orange-200 ring-4 ring-orange-100 ring-offset-4' : 
+                          'bg-gray-200 shadow-gray-100'}
+                        ${isLocked ? 'cursor-not-allowed grayscale' : 'cursor-pointer'}
+                      `}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-10 h-10 text-white" />
+                      ) : isLocked ? (
+                        <Lock className="w-8 h-8 text-gray-400" />
+                      ) : level.type === 'final' ? (
+                        <Trophy className="w-10 h-10 text-white" />
+                      ) : (
+                        <BookOpen className="w-10 h-10 text-white" />
+                      )}
+
+                      {/* Stars for completed levels */}
+                      {isCompleted && (
+                        <div className="absolute -top-2 -right-2 flex gap-0.5">
+                          {[1, 2, 3].map(s => (
+                            <Star key={s} className="w-4 h-4 text-yellow-400 fill-yellow-400 drop-shadow-sm" />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Current level indicator */}
+                      {isCurrent && (
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ repeat: Infinity, duration: 2 }}
+                          className="absolute -top-12 bg-white px-3 py-1 rounded-xl shadow-lg border border-orange-100 text-orange-600 font-bold text-xs whitespace-nowrap"
+                        >
+                          התחל כאן!
+                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border-b border-r border-orange-100 rotate-45" />
+                        </motion.div>
+                      )}
+                    </motion.button>
+                    
+                    <span className={`text-sm font-bold text-center max-w-[120px] ${isLocked ? 'text-gray-400' : 'text-gray-700'}`}>
+                      {level.title}
+                    </span>
+                  </div>
+                </motion.div>
+
+                {/* Connecting Path Segment (SVG for better winding) */}
+                {index < levels.length - 1 && (
+                  <div className="absolute top-20 h-16 w-full pointer-events-none overflow-visible">
+                    <svg className="w-full h-full" overflow="visible">
+                      <motion.path
+                        d={`M ${index % 2 === 0 ? 'calc(50% + 48px)' : 'calc(50% - 48px)'} 0 
+                           C ${index % 2 === 0 ? 'calc(50% + 48px)' : 'calc(50% - 48px)'} 32,
+                             ${(index + 1) % 2 === 0 ? 'calc(50% + 48px)' : 'calc(50% - 48px)'} 32,
+                             ${(index + 1) % 2 === 0 ? 'calc(50% + 48px)' : 'calc(50% - 48px)'} 64`}
+                        fill="none"
+                        stroke={isCompleted ? "#22c55e" : "#f3f4f6"}
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        initial={{ pathLength: 0 }}
+                        whileInView={{ pathLength: 1 }}
+                        viewport={{ once: true }}
+                      />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+const StudyContentOverlay = memo(({ section, onComplete, onBack, isLast }: any) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: '100%' }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: '100%' }}
+      className="fixed inset-0 z-50 bg-white flex flex-col"
+    >
+      <div className="p-4 border-b flex items-center justify-between bg-white sticky top-0">
+        <Button variant="ghost" onClick={onBack}>
+          <ChevronRight className="w-5 h-5 ms-1" />
+          חזור למפה
+        </Button>
+        <h3 className="font-bold text-lg">{section.title}</h3>
+        <div className="w-20" />
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="max-w-2xl mx-auto space-y-8">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-black text-gray-900">{section.title}</h2>
+            <p className="text-lg text-gray-700 leading-relaxed whitespace-pre-wrap">
+              {section.content}
+            </p>
+          </div>
+
+          {section.keyPoints && section.keyPoints.length > 0 && (
+            <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 space-y-4">
+              <h4 className="font-bold text-orange-800 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                נקודות מפתח לזכור
+              </h4>
+              <ul className="space-y-3">
+                {section.keyPoints.map((point: string, i: number) => (
+                  <li key={i} className="flex items-start gap-3 text-gray-700">
+                    <div className="w-6 h-6 rounded-full bg-orange-200 flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-orange-600" />
+                    </div>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {section.examples && section.examples.length > 0 && (
+            <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 space-y-4">
+              <h4 className="font-bold text-blue-800 flex items-center gap-2">
+                <Brain className="w-5 h-5" />
+                דוגמאות מהחיים
+              </h4>
+              <div className="space-y-3">
+                {section.examples.map((ex: string, i: number) => (
+                  <div key={i} className="bg-white/50 p-4 rounded-2xl italic text-blue-900">
+                    "{ex}"
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-6 border-t bg-white">
+        <div className="max-w-2xl mx-auto">
+          <Button 
+            className="w-full h-16 text-xl font-bold bg-green-500 hover:bg-green-600 shadow-lg shadow-green-100 rounded-2xl"
+            onClick={onComplete}
+          >
+            {isLast ? 'סיים למידה!' : 'המשך לשלב הבא'}
+            <ArrowRight className="w-6 h-6 me-2" />
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+const SubjectSelection = memo(({ onSelect, currentSubject, onBack }: { onSelect: (id: string) => void, currentSubject: string, onBack: () => void }) => {
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
+  return (
+    <motion.div
+      key="subject"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6"
+    >
+      <div className="flex items-center justify-between mb-8">
+        <Button variant="ghost" size="sm" onClick={onBack} className="text-gray-500 hover:text-orange-600">
+          <ChevronRight className="w-4 h-4 ms-1" />
+          חזור
+        </Button>
+        <div className="text-center flex-1">
+          <h2 className="text-3xl font-extrabold tracking-tight">בחר מקצוע לימודי</h2>
+          <p className="text-gray-500">המערכת תתאים את סוג השאלות והרמה לפי המקצוע</p>
+        </div>
+        <div className="w-20" />
+      </div>
+
+      <motion.div 
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-2 sm:grid-cols-3 gap-4"
+      >
+        {SUBJECTS.map((s) => (
+          <motion.div key={s.id} variants={item}>
+            <Card 
+              className={`cursor-pointer border-2 transition-all hover:shadow-lg h-full group ${
+                currentSubject === s.id 
+                  ? 'border-orange-500 bg-orange-50/50 shadow-inner' 
+                  : 'border-gray-100 hover:border-orange-200 bg-white/50 backdrop-blur-sm'
+              }`}
+              onClick={() => onSelect(s.id)}
+            >
+              <CardContent className="flex flex-col items-center justify-center py-10 space-y-4">
+                <motion.div 
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shadow-sm transition-colors ${
+                    currentSubject === s.id ? 'bg-orange-500 text-white' : 'bg-gray-50 group-hover:bg-orange-100'
+                  }`}
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                >
+                  {s.icon}
+                </motion.div>
+                <span className={`font-bold text-lg ${currentSubject === s.id ? 'text-orange-700' : 'text-gray-700'}`}>
+                  {s.name}
+                </span>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </motion.div>
+    </motion.div>
+  );
+});
 
 const InputStep = memo(({ onTextSubmit, onBack, inputText, setInputText, loading, error }: any) => (
   <motion.div
@@ -348,32 +664,60 @@ const InputStep = memo(({ onTextSubmit, onBack, inputText, setInputText, loading
     exit={{ opacity: 0, y: -20 }}
     className="space-y-6"
   >
-    <div className="text-center space-y-2 mb-8">
-      <h2 className="text-3xl font-extrabold tracking-tight">צור שאלות תרגול חכמות</h2>
-      <p className="text-gray-500">הזן טקסט כדי להתחיל</p>
+    <div className="flex items-center justify-between mb-8">
+      <Button variant="ghost" size="sm" onClick={onBack} className="text-gray-500 hover:text-orange-600">
+        <ChevronRight className="w-4 h-4 ms-1" />
+        חזור
+      </Button>
+      <div className="text-center flex-1">
+        <h2 className="text-3xl font-extrabold tracking-tight">צור שאלות תרגול חכמות</h2>
+        <p className="text-gray-500">הזן טקסט כדי להתחיל</p>
+      </div>
+      <div className="w-20" />
     </div>
 
-    <div className="max-w-xl mx-auto">
-      <Card className="border-2 border-gray-100">
-        <CardHeader>
-          <CardTitle className="text-lg">הזנת טקסט ידנית</CardTitle>
-          <CardDescription>הדבק טקסט או הזן נושא ללימוד</CardDescription>
+    <div className="max-w-2xl mx-auto">
+      <Card className="border-2 border-gray-100 shadow-xl shadow-gray-100/50 bg-white/80 backdrop-blur-md overflow-hidden">
+        <div className="h-2 bg-gradient-to-r from-orange-400 to-orange-600" />
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <FileText className="w-5 h-5 text-orange-500" />
+            הזנת תוכן ללימוד
+          </CardTitle>
+          <CardDescription className="text-base">הדבק טקסט, מאמר או פשוט הקלד את הנושא שברצונך ללמוד ולתרגל</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea 
-            placeholder="הזן כאן את התוכן שלך..." 
-            className="min-h-[120px] resize-none"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-          />
-          <Button 
-            className="w-full bg-orange-500 hover:bg-orange-600"
-            onClick={onTextSubmit}
-            disabled={!inputText.trim() || loading}
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin ms-2" /> : <FileText className="w-4 h-4 ms-2" />}
-            נתח תוכן
-          </Button>
+        <CardContent className="space-y-6">
+          <div className="relative">
+            <Textarea 
+              placeholder="לדוגמה: 'מלחמת העולם השנייה', 'חוקי ניוטון', או פשוט הדבק כאן סיכום שלם..." 
+              className="min-h-[200px] resize-none text-lg p-6 border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 transition-all bg-gray-50/30"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+            />
+            <div className="absolute bottom-4 left-4 text-xs text-gray-400 font-mono">
+              {inputText.length} תווים
+            </div>
+          </div>
+          
+          <div className="flex flex-col gap-3">
+            <Button 
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 py-8 text-xl font-black rounded-2xl shadow-lg shadow-orange-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              onClick={onTextSubmit}
+              disabled={!inputText.trim() || loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-6 h-6 ms-2 animate-spin" />
+                  מעבד את המידע...
+                </>
+              ) : (
+                <>
+                  <Brain className="w-6 h-6 ms-2" />
+                  בוא נתחיל!
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -388,14 +732,15 @@ const InputStep = memo(({ onTextSubmit, onBack, inputText, setInputText, loading
     <div className="flex justify-center mt-4">
       <Button variant="ghost" onClick={onBack}>
         <ChevronRight className="w-4 h-4 ms-2" />
-        חזור לבחירת כיתה
+        חזור לבחירת מקצוע
       </Button>
     </div>
   </motion.div>
 ));
 
 export default function App() {
-  const [step, setStep] = useState<Step>('subject');
+  const [step, setStep] = useState<Step>('landing');
+  const [mode, setMode] = useState<'practice' | 'study'>('practice');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -405,6 +750,10 @@ export default function App() {
   const [extractedText, setExtractedText] = useState('');
   const [topics, setTopics] = useState<string[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  
+  // Study state
+  const [studyMaterial, setStudyMaterial] = useState<StudyMaterial | null>(null);
+  const [currentStudySectionIndex, setCurrentStudySectionIndex] = useState(0);
   
   // Quiz options
   const [numQuestions, setNumQuestions] = useState(5);
@@ -430,6 +779,8 @@ export default function App() {
     contrast: 'normal'
   });
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [resultsSource, setResultsSource] = useState<'quiz' | 'history'>('quiz');
+  const [completedSections, setCompletedSections] = useState<number[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load history from localStorage
@@ -437,7 +788,13 @@ export default function App() {
     const savedHistory = localStorage.getItem('quiz_history');
     if (savedHistory) {
       try {
-        setHistory(JSON.parse(savedHistory));
+        const parsed = JSON.parse(savedHistory);
+        // Add type: 'quiz' to old items if missing
+        const migrated = parsed.map((item: any) => ({
+          ...item,
+          type: item.type || 'quiz'
+        }));
+        setHistory(migrated);
       } catch (e) {
         console.error('Failed to parse history', e);
       }
@@ -506,6 +863,27 @@ export default function App() {
       setLoading(false);
     }
   }, [extractedText, subject, numQuestions, difficulty, level, selectedQuestionTypes, selectedTopic]);
+
+  const handleGenerateStudy = useCallback(async () => {
+    if (!inputText.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await generateStudyMaterial(inputText, {
+        subject,
+        level
+      });
+      setStudyMaterial(data);
+      setCurrentStudySectionIndex(-1);
+      setCompletedSections([]);
+      setStep('study');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'שגיאה ביצירת חומר הלימוד. נסה שוב.');
+    } finally {
+      setLoading(false);
+    }
+  }, [inputText, subject, level]);
 
   const handleEvaluateOpenAnswer = useCallback(async (questionId: string) => {
     if (!quizData) return;
@@ -604,6 +982,7 @@ export default function App() {
         id: Math.random().toString(36).substr(2, 9),
         date: new Date().toLocaleString('he-IL'),
         subject: SUBJECTS.find(s => s.id === subject)?.name || subject,
+        type: 'quiz',
         score,
         correctCount,
         totalQuestions: quizData.questions.length,
@@ -613,6 +992,7 @@ export default function App() {
       setHistory(prev => [newHistoryItem, ...prev]);
     }
     
+    setResultsSource('quiz');
     setStep('results');
   }, [quizData, subject, score, correctCount, userAnswers]);
 
@@ -626,30 +1006,54 @@ export default function App() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setStep('subject')}>
-            <div className="bg-orange-500 p-2 rounded-lg">
+          <motion.div 
+            className="flex items-center gap-2 cursor-pointer" 
+            onClick={() => setStep('landing')}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <motion.div 
+              className="bg-orange-500 p-2 rounded-lg"
+              animate={{ rotate: [0, 10, 0, -10, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >
               <Brain className="w-6 h-6 text-white" />
-            </div>
+            </motion.div>
             <h1 className="text-xl font-bold tracking-tight text-blue-700">זמן למבחן</h1>
-          </div>
+          </motion.div>
           
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => setStep('subject')} className="text-gray-500">
+          <div className="flex items-center gap-2 md:gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setStep('landing')} 
+              className="text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-all rounded-full px-4"
+            >
               <Home className="w-4 h-4 ms-2" />
-              מסך הבית
+              <span className="hidden sm:inline">מסך הבית</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setStep('history')} className="text-gray-500">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setStep('history')} 
+              className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all rounded-full px-4"
+            >
               <History className="w-4 h-4 ms-2" />
-              היסטוריה
+              <span className="hidden sm:inline">היסטוריה</span>
             </Button>
-            {step !== 'subject' && (
-              <Button variant="ghost" size="sm" onClick={() => setStep('subject')} className="text-gray-500">
+            {step !== 'landing' && step !== 'subject' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setStep('landing')} 
+                className="text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all rounded-full px-4"
+              >
                 <RotateCcw className="w-4 h-4 ms-2" />
-                התחל מחדש
+                <span className="hidden sm:inline">התחל מחדש</span>
               </Button>
             )}
-            <Button variant="outline" size="icon" className="rounded-full">
-              <Settings className="w-4 h-4" />
+            <Button variant="outline" size="icon" className="rounded-full border-gray-200 hover:border-orange-200 hover:bg-orange-50 transition-all">
+              <Settings className="w-4 h-4 text-gray-500" />
             </Button>
           </div>
         </div>
@@ -657,14 +1061,145 @@ export default function App() {
 
       <main className="max-w-3xl mx-auto px-4 py-8 relative z-10">
         <AnimatePresence mode="wait">
+          {/* Landing Page */}
+          {step === 'landing' && (
+            <motion.div
+              key="landing"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-12 py-12"
+            >
+              <div className="text-center space-y-6 relative">
+                <h2 className="text-5xl md:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900">
+                  מה תרצה לעשות היום?
+                </h2>
+                <p className="text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed">
+                  בחר את הדרך שלך להצליח - למידה מעמיקה של חומר חדש או תרגול ממוקד למבחן. אנחנו כאן כדי להפוך את הלמידה לחוויה מהנה.
+                </p>
+                <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl -z-10" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <motion.div
+                  whileHover={{ scale: 1.02, y: -8 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="h-full"
+                >
+                  <Card 
+                    className="group cursor-pointer border-2 border-orange-100 hover:border-orange-500 transition-all hover:shadow-2xl hover:shadow-orange-200/50 overflow-hidden relative flex flex-col h-full bg-white/70 backdrop-blur-sm"
+                    onClick={() => {
+                      setMode('study');
+                      setStep('subject');
+                    }}
+                  >
+                    <div className="absolute top-4 left-4 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10 animate-pulse">חדש</div>
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-orange-100/50 rounded-full transition-all group-hover:scale-125 group-hover:bg-orange-200/50 blur-2xl" />
+                    
+                    <CardHeader className="relative pt-12 pb-6 text-center flex-1">
+                      <motion.div 
+                        className="mx-auto bg-gradient-to-br from-orange-400 to-orange-600 w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-lg shadow-orange-200 group-hover:rotate-12 transition-transform"
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      >
+                        <BookOpen className="w-10 h-10 text-white" />
+                      </motion.div>
+                      <CardTitle className="text-3xl font-black text-gray-900">ללמוד חומר חדש</CardTitle>
+                      <CardDescription className="text-lg mt-3 text-gray-600 font-medium">הסברים מפורטים, דוגמאות וסיכומים חכמים</CardDescription>
+                      
+                      <div className="mt-8 space-y-3 text-right inline-block mx-auto">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle2 className="w-4 h-4 text-orange-500" />
+                          <span>סיכומים מותאמים אישית</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle2 className="w-4 h-4 text-orange-500" />
+                          <span>דוגמאות והסברים פשוטים</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle2 className="w-4 h-4 text-orange-500" />
+                          <span>חלוקה לנושאים בצורה חכמה</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardFooter className="relative justify-center pb-12 mt-auto">
+                      <Button className="bg-orange-500 hover:bg-orange-600 px-10 py-7 text-xl font-bold rounded-2xl w-56 shadow-xl shadow-orange-200 transition-all group-hover:scale-105">
+                        בוא נלמד
+                        <ChevronLeft className="w-5 h-5 me-2" />
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  whileHover={{ scale: 1.02, y: -8 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="h-full"
+                >
+                  <Card 
+                    className="group cursor-pointer border-2 border-blue-100 hover:border-blue-500 transition-all hover:shadow-2xl hover:shadow-blue-200/50 overflow-hidden relative flex flex-col h-full bg-white/70 backdrop-blur-sm"
+                    onClick={() => {
+                      setMode('practice');
+                      setStep('subject');
+                    }}
+                  >
+                    <div className="absolute top-4 left-4 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">פופולרי</div>
+                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-100/50 rounded-full transition-all group-hover:scale-125 group-hover:bg-blue-200/50 blur-2xl" />
+                    
+                    <CardHeader className="relative pt-12 pb-6 text-center flex-1">
+                      <motion.div 
+                        className="mx-auto bg-gradient-to-br from-blue-400 to-blue-600 w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200 group-hover:-rotate-12 transition-transform"
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                      >
+                        <Brain className="w-10 h-10 text-white" />
+                      </motion.div>
+                      <CardTitle className="text-3xl font-black text-gray-900">לתרגל למבחן</CardTitle>
+                      <CardDescription className="text-lg mt-3 text-gray-600 font-medium">שאלונים מותאמים אישית ומשוב מיידי</CardDescription>
+                      
+                      <div className="mt-8 space-y-3 text-right inline-block mx-auto">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                          <span>מבחני סימולציה מלאים</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                          <span>שאלות ברמות קושי שונות</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                          <span>משוב והסברים לכל תשובה</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardFooter className="relative justify-center pb-12 mt-auto">
+                      <Button className="bg-blue-600 hover:bg-blue-700 px-10 py-7 text-xl font-bold rounded-2xl w-56 shadow-xl shadow-blue-200 transition-all group-hover:scale-105">
+                        בוא נתרגל
+                        <ChevronLeft className="w-5 h-5 me-2" />
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
           {/* Step 0: Subject Selection */}
           {step === 'subject' && (
             <SubjectSelection 
               currentSubject={subject} 
               onSelect={(id) => {
                 setSubject(id);
+                setInputText('');
+                setExtractedText('');
+                setTopics([]);
+                setQuizData(null);
+                setStudyMaterial(null);
+                setCompletedSections([]);
                 setStep('grade');
               }} 
+              onBack={() => setStep('landing')}
             />
           )}
 
@@ -677,10 +1212,17 @@ export default function App() {
               exit={{ opacity: 0, scale: 1.05 }}
               className="space-y-6"
             >
-              <div className="text-center space-y-2 mb-8">
-                <h2 className="text-3xl font-extrabold tracking-tight text-blue-600">באיזו כיתה אתה? 🎓</h2>
-                <p className="text-gray-500 text-lg">נתאים את השאלות בדיוק לרמה שלך!</p>
-              </div>
+      <div className="flex items-center justify-between mb-8">
+        <Button variant="ghost" size="sm" onClick={() => setStep('subject')} className="text-gray-500 hover:text-blue-600">
+          <ChevronRight className="w-4 h-4 ms-1" />
+          חזור
+        </Button>
+        <div className="text-center flex-1">
+          <h2 className="text-3xl font-extrabold tracking-tight text-blue-600">באיזו כיתה אתה? 🎓</h2>
+          <p className="text-gray-500 text-lg">נתאים את השאלות בדיוק לרמה שלך!</p>
+        </div>
+        <div className="w-20" />
+      </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {GRADES.map((g) => (
@@ -710,13 +1252,62 @@ export default function App() {
           {/* Step 1: Input */}
           {step === 'input' && (
             <InputStep 
-              onTextSubmit={handleTextSubmit}
+              onTextSubmit={mode === 'study' ? handleGenerateStudy : handleTextSubmit}
               onBack={() => setStep('grade')}
               inputText={inputText}
               setInputText={setInputText}
               loading={loading}
               error={error}
             />
+          )}
+
+          {/* Step 6: Study Material (Gamified Learning Map) */}
+          {step === 'study' && studyMaterial && (
+            <div className="min-h-screen bg-gray-50/30 -mx-4 sm:-mx-6 lg:-mx-8">
+              <LearningMap 
+                studyMaterial={studyMaterial}
+                completedSections={completedSections}
+                onSelectSection={(id: number) => setCurrentStudySectionIndex(id)}
+                onBack={() => setStep('input')}
+              />
+
+              <AnimatePresence>
+                {currentStudySectionIndex !== -1 && (
+                  <StudyContentOverlay 
+                    section={
+                      currentStudySectionIndex === 0 
+                        ? { title: 'סקירה כללית', content: studyMaterial.overview, keyPoints: [], examples: [] }
+                        : currentStudySectionIndex <= studyMaterial.sections.length
+                          ? studyMaterial.sections[currentStudySectionIndex - 1]
+                          : { title: 'סיכום ומאסטרי', content: studyMaterial.summary, keyPoints: [], examples: [] }
+                    }
+                    isLast={currentStudySectionIndex > studyMaterial.sections.length}
+                    onBack={() => setCurrentStudySectionIndex(-1)}
+                    onComplete={() => {
+                      if (!completedSections.includes(currentStudySectionIndex)) {
+                        setCompletedSections(prev => [...prev, currentStudySectionIndex]);
+                      }
+                      
+                      if (currentStudySectionIndex > studyMaterial.sections.length) {
+                        // Final level completed
+                        const newHistoryItem: HistoryItem = {
+                          id: Math.random().toString(36).substr(2, 9),
+                          date: new Date().toLocaleString('he-IL'),
+                          subject: SUBJECTS.find(s => s.id === subject)?.name || subject,
+                          type: 'study',
+                          studyMaterial
+                        };
+                        setHistory(prev => [newHistoryItem, ...prev]);
+                        setStep('landing');
+                        setCurrentStudySectionIndex(-1);
+                      } else {
+                        setCurrentStudySectionIndex(-1);
+                      }
+                    }}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
           )}
 
           {/* Step 2: Topics & Settings */}
@@ -728,9 +1319,16 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
+              <div className="flex items-center justify-between mb-4">
+                <Button variant="ghost" size="sm" onClick={() => setStep('input')} className="text-gray-500 hover:text-orange-600">
+                  <ChevronRight className="w-4 h-4 ms-1" />
+                  חזור
+                </Button>
+                <h2 className="text-2xl font-bold flex-1 text-center">הגדרות שאלון</h2>
+                <div className="w-20" />
+              </div>
               <Card>
                 <CardHeader>
-                  <CardTitle>הגדרות שאלון</CardTitle>
                   <CardDescription>בחר את הנושאים ורמת הקושי המבוקשת</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -876,6 +1474,17 @@ export default function App() {
                     <h3 className="text-xl font-bold">{quizData.title}</h3>
                     <div className="flex items-center gap-3">
                       <p className="text-sm text-gray-500">שאלה {currentQuestionIndex + 1} מתוך {quizData.questions.length}</p>
+                      {studyMaterial && (
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="h-auto p-0 text-orange-600 font-bold"
+                          onClick={() => setStep('study')}
+                        >
+                          <BookOpen className="w-3.5 h-3.5 ms-1" />
+                          חזור ללימוד
+                        </Button>
+                      )}
                     <Sheet>
                       <SheetTrigger render={
                         <Button variant="link" size="sm" className="h-auto p-0 text-orange-600">
@@ -954,7 +1563,21 @@ export default function App() {
                 <CardContent className="space-y-4">
                   {/* Multiple Choice */}
                   {quizData.questions[currentQuestionIndex].type === 'multiple-choice' && quizData.questions[currentQuestionIndex].options && (
-                    <div className="space-y-3">
+                    <motion.div 
+                      className="space-y-3"
+                      variants={{
+                        hidden: { opacity: 0 },
+                        show: {
+                          opacity: 1,
+                          transition: {
+                            staggerChildren: 0.05
+                          }
+                        }
+                      }}
+                      initial="hidden"
+                      animate="show"
+                      key={`options-${currentQuestionIndex}`}
+                    >
                       {quizData.questions[currentQuestionIndex].options.map((option, i) => {
                         const isSelected = userAnswers[quizData.questions[currentQuestionIndex].id] === i;
                         const isCorrect = parseInt(quizData.questions[currentQuestionIndex].correctAnswer) === i;
@@ -977,45 +1600,60 @@ export default function App() {
                         }
 
                         return (
-                          <Button
+                          <motion.div
                             key={i}
-                            variant={variant as any}
-                            className={className}
-                            onClick={() => handleAnswer(quizData.questions[currentQuestionIndex].id, i)}
-                            disabled={showResult}
+                            variants={{
+                              hidden: { opacity: 0, x: -20 },
+                              show: { opacity: 1, x: 0 }
+                            }}
+                            whileHover={{ scale: 1.01, x: 5 }}
+                            whileTap={{ scale: 0.99 }}
                           >
-                            <div className="flex items-center justify-between w-full">
-                              <span>{option}</span>
-                              {showResult && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 ms-2" />}
-                              {showResult && isSelected && !isCorrect && <X className="w-5 h-5 text-red-600 shrink-0 ms-2" />}
-                            </div>
-                          </Button>
+                            <Button
+                              variant={variant as any}
+                              className={className}
+                              onClick={() => handleAnswer(quizData.questions[currentQuestionIndex].id, i)}
+                              disabled={showResult}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span>{option}</span>
+                                {showResult && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 ms-2" />}
+                                {showResult && isSelected && !isCorrect && <X className="w-5 h-5 text-red-600 shrink-0 ms-2" />}
+                              </div>
+                            </Button>
+                          </motion.div>
                         );
                       })}
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* True/False */}
                   {quizData.questions[currentQuestionIndex].type === 'true-false' && (
-                    <div className="flex gap-4">
+                    <motion.div 
+                      className="flex gap-4"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      key={`tf-${currentQuestionIndex}`}
+                    >
                       {[true, false].map((val) => {
                         const isSelected = userAnswers[quizData.questions[currentQuestionIndex].id] === val;
                         const isCorrect = (quizData.questions[currentQuestionIndex].correctAnswer === 'true' || quizData.questions[currentQuestionIndex].correctAnswer === true) === val;
                         const showResult = step === 'quiz' && userAnswers[quizData.questions[currentQuestionIndex].id] !== undefined;
 
                         return (
-                          <Button
-                            key={val.toString()}
-                            variant={isSelected ? "default" : "outline"}
-                            className={`flex-1 py-8 text-xl ${showResult && isCorrect ? 'border-green-500 bg-green-50' : showResult && isSelected ? 'border-red-500 bg-red-50' : isSelected ? 'bg-orange-50 border-orange-500 text-orange-900' : ''}`}
-                            onClick={() => handleAnswer(quizData.questions[currentQuestionIndex].id, val)}
-                            disabled={showResult}
-                          >
-                            {val ? 'נכון' : 'לא נכון'}
-                          </Button>
+                          <motion.div key={val.toString()} className="flex-1" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                            <Button
+                              variant={isSelected ? "default" : "outline"}
+                              className={`w-full py-8 text-xl ${showResult && isCorrect ? 'border-green-500 bg-green-50' : showResult && isSelected ? 'border-red-500 bg-red-50' : isSelected ? 'bg-orange-50 border-orange-500 text-orange-900' : ''}`}
+                              onClick={() => handleAnswer(quizData.questions[currentQuestionIndex].id, val)}
+                              disabled={showResult}
+                            >
+                              {val ? 'נכון' : 'לא נכון'}
+                            </Button>
+                          </motion.div>
                         );
                       })}
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* Open / Completion */}
@@ -1133,9 +1771,16 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <div className="text-center space-y-2 mb-8">
-                <h2 className="text-3xl font-extrabold tracking-tight">היסטוריית מבחנים</h2>
-                <p className="text-gray-500">צפה בביצועים הקודמים שלך</p>
+              <div className="flex items-center justify-between mb-8">
+                <Button variant="ghost" size="sm" onClick={() => setStep('landing')} className="text-gray-500 hover:text-orange-600">
+                  <ChevronRight className="w-4 h-4 ms-1" />
+                  חזור
+                </Button>
+                <div className="text-center flex-1">
+                  <h2 className="text-3xl font-extrabold tracking-tight">היסטוריית מבחנים</h2>
+                  <p className="text-gray-500">צפה בביצועים הקודמים שלך</p>
+                </div>
+                <div className="w-20" />
               </div>
 
               {history.length === 0 ? (
@@ -1151,34 +1796,72 @@ export default function App() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-4">
+                <motion.div 
+                  className="space-y-4"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    show: {
+                      opacity: 1,
+                      transition: {
+                        staggerChildren: 0.1
+                      }
+                    }
+                  }}
+                  initial="hidden"
+                  animate="show"
+                >
                   {history.map((item) => (
-                    <Card key={item.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6 flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-lg">{item.subject}</span>
-                            <span className="text-xs text-gray-400">{item.date}</span>
+                    <motion.div
+                      key={item.id}
+                      variants={{
+                        hidden: { opacity: 0, y: 20 },
+                        show: { opacity: 1, y: 0 }
+                      }}
+                      whileHover={{ scale: 1.02, x: -5 }}
+                    >
+                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                        <CardContent className="p-6 flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-lg">{item.subject}</span>
+                              <span className="text-xs text-gray-400">{item.date}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${item.type === 'study' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
+                                {item.type === 'study' ? 'לימוד' : 'מבחן'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              {item.type === 'study' ? (
+                                `לימוד נושא: ${item.studyMaterial?.title}`
+                              ) : (
+                                `${item.correctCount} מתוך ${item.totalQuestions} שאלות נכונות`
+                              )}
+                            </p>
                           </div>
-                          <p className="text-sm text-gray-500">
-                            {item.correctCount} מתוך {item.totalQuestions} שאלות נכונות
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <div className="text-center">
-                            <p className="text-2xl font-black text-orange-600">{item.score}</p>
-                            <p className="text-[10px] text-gray-400 uppercase">ציון</p>
+                          <div className="flex items-center gap-6">
+                            {item.type === 'quiz' && (
+                              <div className="text-center">
+                                <p className="text-2xl font-black text-orange-600">{item.score}</p>
+                                <p className="text-[10px] text-gray-400 uppercase">ציון</p>
+                              </div>
+                            )}
+                            <Button variant="outline" size="sm" onClick={() => {
+                              if (item.type === 'study') {
+                                setStudyMaterial(item.studyMaterial!);
+                                setCurrentStudySectionIndex(-1);
+                                setStep('study');
+                              } else {
+                                setQuizData(item.quizData!);
+                                setUserAnswers(item.userAnswers!);
+                                setResultsSource('history');
+                                setStep('results');
+                              }
+                            }}>
+                              {item.type === 'study' ? 'צפה בחומר' : 'צפה בתוצאות'}
+                            </Button>
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => {
-                            setQuizData(item.quizData);
-                            setUserAnswers(item.userAnswers);
-                            setStep('results');
-                          }}>
-                            צפה בתוצאות
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
                   ))}
                   <Button variant="ghost" className="w-full text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => {
                     if (confirm('האם אתה בטוח שברצונך למחוק את כל ההיסטוריה?')) {
@@ -1187,7 +1870,7 @@ export default function App() {
                   }}>
                     מחק את כל ההיסטוריה
                   </Button>
-                </div>
+                </motion.div>
               )}
 
               <div className="flex justify-center mt-4">
@@ -1208,9 +1891,9 @@ export default function App() {
               className="space-y-6"
             >
               <div className="flex items-center justify-between mb-8">
-                <Button variant="ghost" size="sm" onClick={() => setStep('topics')}>
+                <Button variant="ghost" size="sm" onClick={() => setStep(resultsSource === 'history' ? 'history' : 'topics')}>
                   <ChevronRight className="w-4 h-4 ms-1" />
-                  חזור להגדרות
+                  {resultsSource === 'history' ? 'חזור להיסטוריה' : 'חזור להגדרות'}
                 </Button>
                 <h2 className="text-3xl font-extrabold tracking-tight flex-1 text-center">תוצאות המבחן</h2>
                 <div className="w-24"></div> {/* Spacer */}
@@ -1226,27 +1909,57 @@ export default function App() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex justify-center gap-12">
-                    <div className="text-center">
-                      <p className="text-4xl font-black text-orange-600">{score}</p>
+                    <motion.div 
+                      className="text-center"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
+                    >
+                      <p className="text-5xl font-black text-orange-600">{score}</p>
                       <p className="text-sm text-gray-500">ציון סופי</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-4xl font-black text-gray-700">
+                    </motion.div>
+                    <motion.div 
+                      className="text-center"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.4 }}
+                    >
+                      <p className="text-5xl font-black text-gray-700">
                         {correctCount} / {quizData.questions.length}
                       </p>
                       <p className="text-sm text-gray-500">תשובות נכונות</p>
-                    </div>
+                    </motion.div>
                   </div>
 
                   <Separator />
 
                   <div className="space-y-4 text-right">
                     <h4 className="font-bold">סיכום ביצועים:</h4>
-                    <div className="grid grid-cols-1 gap-3">
+                    <motion.div 
+                      className="grid grid-cols-1 gap-3"
+                      variants={{
+                        hidden: { opacity: 0 },
+                        show: {
+                          opacity: 1,
+                          transition: {
+                            staggerChildren: 0.05
+                          }
+                        }
+                      }}
+                      initial="hidden"
+                      animate="show"
+                    >
                       {quizData.questions.map((q, i) => {
                         const correct = isCorrect(q);
                         return (
-                          <div key={i} className={`p-3 rounded-lg border flex items-center justify-between ${correct ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                          <motion.div 
+                            key={i} 
+                            variants={{
+                              hidden: { opacity: 0, y: 10 },
+                              show: { opacity: 1, y: 0 }
+                            }}
+                            className={`p-3 rounded-lg border flex items-center justify-between ${correct ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}
+                          >
                             <div className="flex items-center gap-3 overflow-hidden">
                               {correct ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" /> : <X className="w-4 h-4 text-red-600 shrink-0" />}
                               <p className="text-sm truncate">{q.question}</p>
@@ -1258,10 +1971,10 @@ export default function App() {
                             }}>
                               צפה
                             </Button>
-                          </div>
+                          </motion.div>
                         );
                       })}
-                    </div>
+                    </motion.div>
                   </div>
                 </CardContent>
                 <CardFooter className="flex gap-3">
@@ -1275,6 +1988,13 @@ export default function App() {
                   </Button>
                 </CardFooter>
               </Card>
+
+              <div className="flex justify-center mt-4">
+                <Button variant="ghost" onClick={() => setStep('landing')}>
+                  <ChevronRight className="w-4 h-4 ms-2" />
+                  חזור למסך הבית
+                </Button>
+              </div>
 
               <Card>
                 <CardHeader>
