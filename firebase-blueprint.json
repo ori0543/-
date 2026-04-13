@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user-specific settings and profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID from Firebase Auth" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "HistoryItem": {
+      "title": "History Item",
+      "description": "Stores quiz results and study sessions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "date": { "type": "string" },
+        "subject": { "type": "string" },
+        "type": { "type": "string", "enum": ["quiz", "study"] },
+        "score": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "quizData": { "type": "object" },
+        "userAnswers": { "type": "object" },
+        "studyMaterial": { "type": "object" },
+        "timestamp": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["id", "uid", "date", "subject", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/history/{historyId}": {
+      "schema": "HistoryItem",
+      "description": "Collection of all user history items"
+    }
+  }
+}

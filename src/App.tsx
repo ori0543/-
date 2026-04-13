@@ -38,8 +38,33 @@ import {
   FlaskConical,
   Rocket,
   Music,
-  Globe
+  Globe,
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged, 
+  type User,
+  Timestamp
+} from '@/src/lib/firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  serverTimestamp,
+  deleteDoc,
+  getDocs
+} from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -57,6 +82,15 @@ import {
   SheetTitle, 
   SheetTrigger 
 } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   generateQuiz, 
   extractTopics, 
@@ -783,28 +817,72 @@ export default function App() {
   const [completedSections, setCompletedSections] = useState<number[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load history from localStorage
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Auth listener
   useEffect(() => {
-    const savedHistory = localStorage.getItem('quiz_history');
-    if (savedHistory) {
-      try {
-        const parsed = JSON.parse(savedHistory);
-        // Add type: 'quiz' to old items if missing
-        const migrated = parsed.map((item: any) => ({
-          ...item,
-          type: item.type || 'quiz'
-        }));
-        setHistory(migrated);
-      } catch (e) {
-        console.error('Failed to parse history', e);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthLoading(false);
+      
+      if (currentUser) {
+        // Sync user profile to Firestore
+        const userRef = doc(db, 'users', currentUser.uid);
+        setDoc(userRef, {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL,
+          lastLogin: serverTimestamp()
+        }, { merge: true });
       }
-    }
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Save history to localStorage
+  // Sync history with Firestore
   useEffect(() => {
-    localStorage.setItem('quiz_history', JSON.stringify(history));
-  }, [history]);
+    if (!user) {
+      setHistory([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'history'),
+      where('uid', '==', user.uid),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const historyData = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as HistoryItem[];
+      setHistory(historyData);
+    }, (error) => {
+      console.error("Firestore Error: ", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      console.error("Login Error:", err);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setStep('landing');
+    } catch (err) {
+      console.error("Logout Error:", err);
+    }
+  };
 
   useEffect(() => {
     if (isExamActive && examTimeLeft > 0) {
@@ -972,14 +1050,14 @@ export default function App() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
-  const handleFinishExam = useCallback(() => {
+  const handleFinishExam = useCallback(async () => {
     setIsExamActive(false);
     if (timerRef.current) clearInterval(timerRef.current);
     
     // Save to history
-    if (quizData) {
-      const newHistoryItem: HistoryItem = {
-        id: Math.random().toString(36).substr(2, 9),
+    if (quizData && user) {
+      const newHistoryItem = {
+        uid: user.uid,
         date: new Date().toLocaleString('he-IL'),
         subject: SUBJECTS.find(s => s.id === subject)?.name || subject,
         type: 'quiz',
@@ -987,14 +1065,20 @@ export default function App() {
         correctCount,
         totalQuestions: quizData.questions.length,
         quizData,
-        userAnswers
+        userAnswers,
+        timestamp: serverTimestamp()
       };
-      setHistory(prev => [newHistoryItem, ...prev]);
+      
+      try {
+        await addDoc(collection(db, 'history'), newHistoryItem);
+      } catch (err) {
+        console.error("Error saving history:", err);
+      }
     }
     
     setResultsSource('quiz');
     setStep('results');
-  }, [quizData, subject, score, correctCount, userAnswers]);
+  }, [quizData, subject, score, correctCount, userAnswers, user]);
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 text-[#1a1a1a] font-sans selection:bg-orange-100 relative
@@ -1023,38 +1107,55 @@ export default function App() {
           </motion.div>
           
           <div className="flex items-center gap-2 md:gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setStep('landing')} 
-              className="text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-all rounded-full px-4"
-            >
-              <Home className="w-4 h-4 ms-2" />
-              <span className="hidden sm:inline">מסך הבית</span>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setStep('history')} 
-              className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all rounded-full px-4"
-            >
-              <History className="w-4 h-4 ms-2" />
-              <span className="hidden sm:inline">היסטוריה</span>
-            </Button>
-            {step !== 'landing' && step !== 'subject' && (
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded-full transition-colors outline-none">
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-full border-2 border-orange-200" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                      <UserIcon className="w-4 h-4 text-orange-600" />
+                    </div>
+                  )}
+                  <div className="hidden sm:flex flex-col items-start">
+                    <span className="text-xs font-bold text-blue-700 leading-none">{user.displayName}</span>
+                    <span className="text-[10px] text-gray-400">החשבון שלי</span>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" dir="rtl">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-right">החשבון שלי</DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-right justify-end cursor-pointer" onClick={() => setStep('landing')}>
+                    <span>מסך הבית</span>
+                    <Home className="w-4 h-4 ms-2" />
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-right justify-end cursor-pointer" onClick={() => setStep('history')}>
+                    <span>היסטוריה</span>
+                    <History className="w-4 h-4 ms-2" />
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-right justify-end cursor-pointer" onClick={() => setStep('landing')}>
+                    <span>הגדרות</span>
+                    <Settings className="w-4 h-4 ms-2" />
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-right justify-end cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={handleLogout}>
+                    <span>התנתק</span>
+                    <LogOut className="w-4 h-4 ms-2" />
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
               <Button 
-                variant="ghost" 
+                variant="outline" 
                 size="sm" 
-                onClick={() => setStep('landing')} 
-                className="text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all rounded-full px-4"
+                onClick={handleLogin}
+                className="border-orange-200 text-orange-600 hover:bg-orange-50 rounded-full"
               >
-                <RotateCcw className="w-4 h-4 ms-2" />
-                <span className="hidden sm:inline">התחל מחדש</span>
+                התחבר עם גוגל
               </Button>
             )}
-            <Button variant="outline" size="icon" className="rounded-full border-gray-200 hover:border-orange-200 hover:bg-orange-50 transition-all">
-              <Settings className="w-4 h-4 text-gray-500" />
-            </Button>
           </div>
         </div>
       </header>
@@ -1290,14 +1391,19 @@ export default function App() {
                       
                       if (currentStudySectionIndex > studyMaterial.sections.length) {
                         // Final level completed
-                        const newHistoryItem: HistoryItem = {
-                          id: Math.random().toString(36).substr(2, 9),
-                          date: new Date().toLocaleString('he-IL'),
-                          subject: SUBJECTS.find(s => s.id === subject)?.name || subject,
-                          type: 'study',
-                          studyMaterial
-                        };
-                        setHistory(prev => [newHistoryItem, ...prev]);
+                        if (user) {
+                          const newHistoryItem = {
+                            uid: user.uid,
+                            date: new Date().toLocaleString('he-IL'),
+                            subject: SUBJECTS.find(s => s.id === subject)?.name || subject,
+                            type: 'study',
+                            studyMaterial,
+                            timestamp: serverTimestamp()
+                          };
+                          addDoc(collection(db, 'history'), newHistoryItem).catch(err => {
+                            console.error("Error saving study history:", err);
+                          });
+                        }
                         setStep('landing');
                         setCurrentStudySectionIndex(-1);
                       } else {
@@ -1844,28 +1950,42 @@ export default function App() {
                                 <p className="text-[10px] text-gray-400 uppercase">ציון</p>
                               </div>
                             )}
-                            <Button variant="outline" size="sm" onClick={() => {
-                              if (item.type === 'study') {
-                                setStudyMaterial(item.studyMaterial!);
-                                setCurrentStudySectionIndex(-1);
-                                setStep('study');
-                              } else {
-                                setQuizData(item.quizData!);
-                                setUserAnswers(item.userAnswers!);
-                                setResultsSource('history');
-                                setStep('results');
-                              }
-                            }}>
-                              {item.type === 'study' ? 'צפה בחומר' : 'צפה בתוצאות'}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm" onClick={() => {
+                                if (item.type === 'study') {
+                                  setStudyMaterial(item.studyMaterial!);
+                                  setCurrentStudySectionIndex(-1);
+                                  setStep('study');
+                                } else {
+                                  setQuizData(item.quizData!);
+                                  setUserAnswers(item.userAnswers!);
+                                  setResultsSource('history');
+                                  setStep('results');
+                                }
+                              }}>
+                                {item.type === 'study' ? 'צפה בחומר' : 'צפה בתוצאות'}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-500" onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('האם למחוק פריט זה מההיסטוריה?')) {
+                                  deleteDoc(doc(db, 'history', item.id)).catch(err => console.error(err));
+                                }
+                              }}>
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
                     </motion.div>
                   ))}
-                  <Button variant="ghost" className="w-full text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => {
+                  <Button variant="ghost" className="w-full text-red-500 hover:text-red-600 hover:bg-red-50" onClick={async () => {
                     if (confirm('האם אתה בטוח שברצונך למחוק את כל ההיסטוריה?')) {
-                      setHistory([]);
+                      // Delete all items for this user
+                      const q = query(collection(db, 'history'), where('uid', '==', user?.uid));
+                      const snapshot = await getDocs(q);
+                      const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                      await Promise.all(deletePromises);
                     }
                   }}>
                     מחק את כל ההיסטוריה
