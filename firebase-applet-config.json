@@ -1,4 +1,4 @@
-{
+
  const firebaseConfig = {
   apiKey: "AIzaSyD9DbVzy-9ejkKyvMs5T6Ky3Ftk9VqSXsI",
   authDomain: "gen-lang-client-0350978523.firebaseapp.com",
@@ -7,4 +7,4 @@
   messagingSenderId: "177833580238",
   appId: "1:177833580238:web:d59bfd8fa52ad8e625229f"
 };
-}
+
